@@ -106,3 +106,29 @@ func TestTokenString(t *testing.T) {
 	for range c {
 	}
 }
+
+func TestMultipleBackup(t *testing.T) {
+	lex := NewLexerString("hello")
+	if c := lex.Next(); c != 'h' {
+		t.Error(c)
+	}
+	if c := lex.Next(); c != 'e' {
+		t.Error(c)
+	}
+	lex.Backup()
+	if c := lex.Next(); c != 'e' {
+		t.Error(string(c))
+	}
+	lex.Backup()
+	lex.Backup()
+	if c := lex.Next(); c != 'h' {
+		t.Error(string(c))
+	}
+	if c := lex.Next(); c != 'e' {
+		t.Error(string(c))
+	}
+	lex.Backup()
+	if c := lex.Next(); c != 'e' {
+		t.Error(string(c))
+	}
+}

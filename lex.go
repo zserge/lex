@@ -3,8 +3,10 @@ package lex
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"unicode/utf8"
 )
 
 type TokenType int
@@ -65,20 +67,20 @@ type Lexer interface {
 }
 
 type lexer struct {
-	r      *bufio.Reader
+	r      *bufreader
 	tokens chan Token
 	eof    bool
 	// currently bufferred value
 	value []rune
 	// Position in the stream
 	pos      pos
-	prevPos  pos
 	tokenPos pos
+	prevPos  []pos
 }
 
 func NewLexer(r io.Reader) Lexer {
 	return &lexer{
-		r:      bufio.NewReader(r),
+		r:      newbufreader(r),
 		tokens: make(chan Token, 0),
 	}
 }
@@ -96,8 +98,10 @@ func (lex *lexer) Next() rune {
 		lex.eof = true
 		return EOF
 	} else {
-		lex.pos.CopyTo(&lex.prevPos)
+		var prev pos
+		lex.pos.CopyTo(&prev)
 		lex.pos.Advance(r)
+		lex.prevPos = append(lex.prevPos, prev)
 		lex.value = append(lex.value, r)
 		return r
 	}
@@ -112,7 +116,9 @@ func (lex *lexer) Peek() rune {
 func (lex *lexer) Backup() {
 	lex.r.UnreadRune()
 	lex.value = lex.value[0 : len(lex.value)-1]
-	lex.prevPos.CopyTo(&lex.pos)
+	prev := lex.prevPos[len(lex.prevPos)-1]
+	prev.CopyTo(&lex.pos)
+	lex.prevPos = lex.prevPos[:len(lex.prevPos)-1]
 }
 
 // Line() returns current line number in the reader
@@ -139,6 +145,7 @@ func (lex *lexer) Value() string {
 func (lex *lexer) Ignore() {
 	lex.pos.CopyTo(&lex.tokenPos)
 	lex.value = []rune{}
+	lex.r.Ignore()
 }
 
 func (lex *lexer) Emit(t TokenType) {
@@ -147,8 +154,7 @@ func (lex *lexer) Emit(t TokenType) {
 
 func (lex *lexer) EmitExtra(t TokenType, extra interface{}) {
 	lex.tokens <- Token{t, lex.Value(), lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos, extra}
-	lex.pos.CopyTo(&lex.tokenPos)
-	lex.value = []rune{}
+	lex.Ignore()
 }
 
 func (lex *lexer) Errorf(t TokenType, s string, args ...interface{}) StateFn {
@@ -165,4 +171,52 @@ func (lex *lexer) Run(start StateFn) <-chan Token {
 		close(lex.tokens)
 	}()
 	return lex.tokens
+}
+
+type bufreader struct {
+	r   *bufio.Reader
+	buf []rune
+	pos int
+	err error
+}
+
+func newbufreader(r io.Reader) *bufreader {
+	return &bufreader{r: bufio.NewReader(r)}
+}
+
+// Reads rune from reader or from a buffer
+func (br *bufreader) ReadRune() (rune, int, error) {
+	if br.err != nil {
+		return 0, 0, br.err
+	}
+	if br.pos < len(br.buf) {
+		c := br.buf[br.pos]
+		br.pos++
+		return c, utf8.RuneLen(c), nil
+	}
+	c, size, err := br.r.ReadRune()
+	if err != nil {
+		br.err = err
+	} else {
+		br.buf = append(br.buf, c)
+		br.pos = len(br.buf)
+	}
+	return c, size, err
+}
+
+// Rewinds the position in the buffer
+func (br *bufreader) UnreadRune() error {
+	br.pos--
+	if br.pos < 0 {
+		return errors.New("reader position is out of bounds")
+	}
+	return nil
+}
+
+// Leaves only on buffered character in the buffer
+func (br *bufreader) Ignore() {
+	br.pos = 0
+	if len(br.buf) > 0 {
+		br.buf = br.buf[len(br.buf)-1:]
+	}
 }
