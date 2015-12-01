@@ -47,9 +47,24 @@ func (tok *Token) String() string {
 		tok.Line, tok.Col, tok.Pos, tok.Type, tok.Value)
 }
 
-type StateFn func(*Lexer) StateFn
+type StateFn func(Lexer) StateFn
 
-type Lexer struct {
+type Lexer interface {
+	Backup()
+	Col() int
+	Emit(t TokenType)
+	EmitExtra(t TokenType, extra interface{})
+	Errorf(t TokenType, s string, args ...interface{}) StateFn
+	Ignore()
+	Line() int
+	Next() rune
+	Peek() rune
+	Pos() int
+	Run(start StateFn) <-chan Token
+	Value() string
+}
+
+type lexer struct {
 	r      *bufio.Reader
 	tokens chan Token
 	eof    bool
@@ -61,18 +76,18 @@ type Lexer struct {
 	tokenPos pos
 }
 
-func NewLexer(r io.Reader) *Lexer {
-	return &Lexer{
+func NewLexer(r io.Reader) Lexer {
+	return &lexer{
 		r:      bufio.NewReader(r),
 		tokens: make(chan Token, 0),
 	}
 }
 
-func NewLexerString(s string) *Lexer {
+func NewLexerString(s string) Lexer {
 	return NewLexer(bytes.NewBufferString(s))
 }
 
-func (lex *Lexer) Next() rune {
+func (lex *lexer) Next() rune {
 	if r, _, err := lex.r.ReadRune(); err != nil {
 		if err != io.EOF {
 			lex.Errorf(TokError, err.Error())
@@ -88,61 +103,61 @@ func (lex *Lexer) Next() rune {
 	}
 }
 
-func (lex *Lexer) Peek() rune {
+func (lex *lexer) Peek() rune {
 	r := lex.Next()
 	lex.Backup()
 	return r
 }
 
-func (lex *Lexer) Backup() {
+func (lex *lexer) Backup() {
 	lex.r.UnreadRune()
 	lex.value = lex.value[0 : len(lex.value)-1]
 	lex.prevPos.CopyTo(&lex.pos)
 }
 
 // Line() returns current line number in the reader
-func (lex *Lexer) Line() int {
+func (lex *lexer) Line() int {
 	return lex.pos.line
 }
 
 // Line() returns current column number in the current line of reader
-func (lex *Lexer) Col() int {
+func (lex *lexer) Col() int {
 	return lex.pos.col
 }
 
 // Line() returns current position in the reader (in runes)
-func (lex *Lexer) Pos() int {
+func (lex *lexer) Pos() int {
 	return lex.pos.pos
 }
 
 // Value() returns currently buffered token value
-func (lex *Lexer) Value() string {
+func (lex *lexer) Value() string {
 	return string(lex.value)
 }
 
 // Ignore() removes currently buffered token value
-func (lex *Lexer) Ignore() {
+func (lex *lexer) Ignore() {
 	lex.pos.CopyTo(&lex.tokenPos)
 	lex.value = []rune{}
 }
 
-func (lex *Lexer) Emit(t TokenType) {
+func (lex *lexer) Emit(t TokenType) {
 	lex.EmitExtra(t, nil)
 }
 
-func (lex *Lexer) EmitExtra(t TokenType, extra interface{}) {
+func (lex *lexer) EmitExtra(t TokenType, extra interface{}) {
 	lex.tokens <- Token{t, lex.Value(), lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos, extra}
 	lex.pos.CopyTo(&lex.tokenPos)
 	lex.value = []rune{}
 }
 
-func (lex *Lexer) Errorf(t TokenType, s string, args ...interface{}) StateFn {
+func (lex *lexer) Errorf(t TokenType, s string, args ...interface{}) StateFn {
 	value := fmt.Sprintf(s, args...)
 	lex.tokens <- Token{t, value, lex.Line(), lex.Col(), lex.Pos(), nil}
 	return nil
 }
 
-func (lex *Lexer) Run(start StateFn) <-chan Token {
+func (lex *lexer) Run(start StateFn) <-chan Token {
 	go func() {
 		for state := start; state != nil && !lex.eof; {
 			state = state(lex)

@@ -13,7 +13,7 @@ func isSpace(r rune) bool {
 	return r == ' ' || r == '\t' || r == '\r' || r == '\n'
 }
 
-func lexWord(lex *Lexer) StateFn {
+func lexWord(lex Lexer) StateFn {
 	for {
 		r := lex.Peek()
 		if isSpace(r) {
@@ -27,7 +27,7 @@ func lexWord(lex *Lexer) StateFn {
 	}
 }
 
-func lexSkipSpaces(lex *Lexer) StateFn {
+func lexSkipSpaces(lex Lexer) StateFn {
 	for isSpace(lex.Next()) {
 	}
 	lex.Backup()
