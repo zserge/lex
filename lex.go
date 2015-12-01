@@ -127,7 +127,11 @@ func (lex *Lexer) Ignore() {
 }
 
 func (lex *Lexer) Emit(t TokenType) {
-	lex.tokens <- Token{t, lex.Value(), lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos, nil}
+	lex.EmitExtra(t, nil)
+}
+
+func (lex *Lexer) EmitExtra(t TokenType, extra interface{}) {
+	lex.tokens <- Token{t, lex.Value(), lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos, extra}
 	lex.pos.CopyTo(&lex.tokenPos)
 	lex.value = []rune{}
 }
