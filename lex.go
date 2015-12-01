@@ -56,6 +56,7 @@ type Lexer interface {
 	Col() int
 	Emit(t TokenType)
 	EmitExtra(t TokenType, extra interface{})
+	EmitValueExtra(t TokenType, s string, extra interface{})
 	Errorf(t TokenType, s string, args ...interface{}) StateFn
 	Ignore()
 	Line() int
@@ -224,8 +225,10 @@ func (br *bufreader) UnreadRune() error {
 
 // Leaves only on buffered character in the buffer
 func (br *bufreader) Ignore() {
-	br.pos = 0
-	if len(br.buf) > 0 {
+	if len(br.buf) > br.pos {
 		br.buf = br.buf[len(br.buf)-1:]
+	} else {
+		br.buf = nil
 	}
+	br.pos = 0
 }
