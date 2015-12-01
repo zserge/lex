@@ -132,3 +132,11 @@ func TestMultipleBackup(t *testing.T) {
 		t.Error(string(c))
 	}
 }
+
+func TestEmptyBackup(t *testing.T) {
+	lex := NewLexerString("hello")
+	lex.Backup()
+	if c := lex.Next(); c != 'h' {
+		t.Error(c)
+	}
+}

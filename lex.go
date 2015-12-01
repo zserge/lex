@@ -115,10 +115,14 @@ func (lex *lexer) Peek() rune {
 
 func (lex *lexer) Backup() {
 	lex.r.UnreadRune()
-	lex.value = lex.value[0 : len(lex.value)-1]
-	prev := lex.prevPos[len(lex.prevPos)-1]
-	prev.CopyTo(&lex.pos)
-	lex.prevPos = lex.prevPos[:len(lex.prevPos)-1]
+	if len(lex.value) > 0 {
+		lex.value = lex.value[:len(lex.value)-1]
+	}
+	if len(lex.prevPos) > 0 {
+		prev := lex.prevPos[len(lex.prevPos)-1]
+		prev.CopyTo(&lex.pos)
+		lex.prevPos = lex.prevPos[:len(lex.prevPos)-1]
+	}
 }
 
 // Line() returns current line number in the reader
@@ -212,6 +216,7 @@ func (br *bufreader) ReadRune() (rune, int, error) {
 func (br *bufreader) UnreadRune() error {
 	br.pos--
 	if br.pos < 0 {
+		br.pos = 0
 		return errors.New("reader position is out of bounds")
 	}
 	return nil
