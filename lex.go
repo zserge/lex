@@ -153,7 +153,11 @@ func (lex *lexer) Emit(t TokenType) {
 }
 
 func (lex *lexer) EmitExtra(t TokenType, extra interface{}) {
-	lex.tokens <- Token{t, lex.Value(), lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos, extra}
+	lex.EmitValueExtra(t, lex.Value(), extra)
+}
+
+func (lex *lexer) EmitValueExtra(t TokenType, s string, extra interface{}) {
+	lex.tokens <- Token{t, s, lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos, extra}
 	lex.Ignore()
 }
 
