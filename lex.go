@@ -127,14 +127,14 @@ func (lex *Lexer) Ignore() {
 }
 
 func (lex *Lexer) Emit(t TokenType) {
-	lex.tokens <- Token{t, lex.Value(), lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos}
+	lex.tokens <- Token{t, lex.Value(), lex.tokenPos.line, lex.tokenPos.col, lex.tokenPos.pos, nil}
 	lex.pos.CopyTo(&lex.tokenPos)
 	lex.value = []rune{}
 }
 
 func (lex *Lexer) Errorf(t TokenType, s string, args ...interface{}) StateFn {
 	value := fmt.Sprintf(s, args...)
-	lex.tokens <- Token{t, value, lex.Line(), lex.Col(), lex.Pos()}
+	lex.tokens <- Token{t, value, lex.Line(), lex.Col(), lex.Pos(), nil}
 	return nil
 }
 
