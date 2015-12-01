@@ -39,6 +39,7 @@ type Token struct {
 	Line  int
 	Col   int
 	Pos   int
+	Extra interface{}
 }
 
 func (tok *Token) String() string {
